@@ -122,7 +122,6 @@ class FfmpegHeirBlock(gr.hier_block2):
 
 
 class udp_rx(grc_wxgui.top_block_gui):
-
     def __init__(self):
         grc_wxgui.top_block_gui.__init__(self, title="Aareff LBC Player")
         _icon_path = "C:\Program Files\GNURadio-3.7\share\icons\hicolor\scalable/apps\gnuradio-grc.png"
@@ -150,7 +149,7 @@ class udp_rx(grc_wxgui.top_block_gui):
         	y_axis_label='Counts',
         )
         self.Add(self.wxgui_scopesink2_0.win)
-        self.blocks_udp_source_0 = FfmpegHeirBlock('-re -i http://media-sov.musicradio.com/LBCUK? -f wav udp://127.0.0.1:1234')#blocks.udp_source(gr.sizeof_short*1, '127.0.0.1', 1234, 1472, True)
+        self.blocks_ffmpeg_source_0 = FfmpegHeirBlock('-re -i http://media-sov.musicradio.com/LBCUK? -f wav udp://127.0.0.1:1234')
         self.blocks_multiply_const_vxx_0 = blocks.multiply_const_vcc((0.000025, ))
         self.blocks_interleaved_short_to_complex_0 = blocks.interleaved_short_to_complex(False, False)
         self.blocks_complex_to_float_0 = blocks.complex_to_float(1)
@@ -159,7 +158,7 @@ class udp_rx(grc_wxgui.top_block_gui):
         ##################################################
         # Connections
         ##################################################
-        self.connect((self.blocks_udp_source_0, 0), (self.blocks_interleaved_short_to_complex_0, 0))
+        self.connect((self.blocks_ffmpeg_source_0, 0), (self.blocks_interleaved_short_to_complex_0, 0))
         self.connect((self.blocks_interleaved_short_to_complex_0, 0), (self.blocks_multiply_const_vxx_0, 0))
         self.connect((self.blocks_multiply_const_vxx_0, 0), (self.blocks_complex_to_float_0, 0))
         self.connect((self.blocks_multiply_const_vxx_0, 0), (self.wxgui_scopesink2_0, 0))
@@ -175,7 +174,6 @@ class udp_rx(grc_wxgui.top_block_gui):
 
 
 def main(top_block_cls=udp_rx, options=None):
-    #run_subprocess('ffmpeg.exe -re -i http://media-sov.musicradio.com/LBCUK? -f wav udp://127.0.0.1:1234')
     tb = top_block_cls()
     tb.Start(True)
 
