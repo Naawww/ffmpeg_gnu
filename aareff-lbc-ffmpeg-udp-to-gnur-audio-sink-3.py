@@ -40,59 +40,6 @@ import wx
 import subprocess
 
 
-class udp_rx(grc_wxgui.top_block_gui):
-
-    def __init__(self):
-        grc_wxgui.top_block_gui.__init__(self, title="Aareff LBC Player")
-        _icon_path = "C:\Program Files\GNURadio-3.7\share\icons\hicolor\scalable/apps\gnuradio-grc.png"
-        self.SetIcon(wx.Icon(_icon_path, wx.BITMAP_TYPE_ANY))
-
-        ##################################################
-        # Variables
-        ##################################################
-        self.samp_rate = samp_rate = 44100
-
-        ##################################################
-        # Blocks
-        ##################################################
-        self.wxgui_scopesink2_0 = scopesink2.scope_sink_c(
-        	self.GetWin(),
-        	title='Aareff Oscilliscope',
-        	sample_rate=samp_rate,
-        	v_scale=0.2,
-        	v_offset=0,
-        	t_scale=5e-3,
-        	ac_couple=False,
-        	xy_mode=False,
-        	num_inputs=1,
-        	trig_mode=wxgui.TRIG_MODE_AUTO,
-        	y_axis_label='Counts',
-        )
-        self.Add(self.wxgui_scopesink2_0.win)
-        self.blocks_udp_source_0 = blocks.udp_source(gr.sizeof_short*1, '127.0.0.1', 1234, 1472, True)
-        self.blocks_multiply_const_vxx_0 = blocks.multiply_const_vcc((0.000025, ))
-        self.blocks_interleaved_short_to_complex_0 = blocks.interleaved_short_to_complex(False, False)
-        self.blocks_complex_to_float_0 = blocks.complex_to_float(1)
-        self.audio_sink_0 = audio.sink(samp_rate, '', True)
-
-        ##################################################
-        # Connections
-        ##################################################
-        self.connect((self.blocks_udp_source_0, 0), (self.blocks_interleaved_short_to_complex_0, 0))
-        self.connect((self.blocks_interleaved_short_to_complex_0, 0), (self.blocks_multiply_const_vxx_0, 0))
-        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.blocks_complex_to_float_0, 0))
-        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.wxgui_scopesink2_0, 0))
-        self.connect((self.blocks_complex_to_float_0, 1), (self.audio_sink_0, 1))
-        self.connect((self.blocks_complex_to_float_0, 0), (self.audio_sink_0, 0))
-
-    def get_samp_rate(self):
-        return self.samp_rate
-
-    def set_samp_rate(self, samp_rate):
-        self.samp_rate = samp_rate
-        self.wxgui_scopesink2_0.set_sample_rate(self.samp_rate)
-
-
 def save_subprocess_pid(pid):
     """Saves the pid of the current subprocess so it can be accessed in later program runs"""
     file_name = "subprocess_pid_{0}.txt".format(pid)
@@ -136,12 +83,101 @@ def run_subprocess(cmd):
     save_subprocess_pid(p.pid)
 
 
+def run_ffmpeg_cmd(ffmpeg_cmd):
+    run_subprocess('ffmpeg.exe {0}'.format(ffmpeg_cmd))
+
+
+class FfmpegHeirBlock(gr.hier_block2):
+
+    def __init__(self, ffmpeg_code='-i test.mp3 -f wave upd://127.0.0.1::1234',
+                        samp_rate=32e3,
+                        ip_address='127.0.0.1',
+                        port=1234,
+                        payload_size=1472):
+        gr.hier_block2.__init__(
+            self, "Heir Block",
+            gr.io_signature(0, 0, 0),
+            gr.io_signature(1, 1, gr.sizeof_short),
+        )
+
+        ##################################################
+        # Parameters
+        ##################################################
+        self.ffmpeg_code = ffmpeg_code
+        self.samp_rate = samp_rate
+        self.ip_address = ip_address
+        self.port = port
+        self.payload_size = payload_size
+
+        ##################################################
+        # Blocks
+        ##################################################
+        run_ffmpeg_cmd(self.ffmpeg_code)
+        self.blocks_udp_source_0 = blocks.udp_source(gr.sizeof_short*1, ip_address, port, payload_size, True)
+
+        ##################################################
+        # Connections
+        ##################################################
+        self.connect((self.blocks_udp_source_0, 0), (self, 0))
+
+
+class udp_rx(grc_wxgui.top_block_gui):
+
+    def __init__(self):
+        grc_wxgui.top_block_gui.__init__(self, title="Aareff LBC Player")
+        _icon_path = "C:\Program Files\GNURadio-3.7\share\icons\hicolor\scalable/apps\gnuradio-grc.png"
+        self.SetIcon(wx.Icon(_icon_path, wx.BITMAP_TYPE_ANY))
+
+        ##################################################
+        # Variables
+        ##################################################
+        self.samp_rate = samp_rate = 44100
+
+        ##################################################
+        # Blocks
+        ##################################################
+        self.wxgui_scopesink2_0 = scopesink2.scope_sink_c(
+        	self.GetWin(),
+        	title='Aareff Oscilliscope',
+        	sample_rate=samp_rate,
+        	v_scale=0.2,
+        	v_offset=0,
+        	t_scale=5e-3,
+        	ac_couple=False,
+        	xy_mode=False,
+        	num_inputs=1,
+        	trig_mode=wxgui.TRIG_MODE_AUTO,
+        	y_axis_label='Counts',
+        )
+        self.Add(self.wxgui_scopesink2_0.win)
+        self.blocks_udp_source_0 = FfmpegHeirBlock('-re -i http://media-sov.musicradio.com/LBCUK? -f wav udp://127.0.0.1:1234')#blocks.udp_source(gr.sizeof_short*1, '127.0.0.1', 1234, 1472, True)
+        self.blocks_multiply_const_vxx_0 = blocks.multiply_const_vcc((0.000025, ))
+        self.blocks_interleaved_short_to_complex_0 = blocks.interleaved_short_to_complex(False, False)
+        self.blocks_complex_to_float_0 = blocks.complex_to_float(1)
+        self.audio_sink_0 = audio.sink(samp_rate, '', True)
+
+        ##################################################
+        # Connections
+        ##################################################
+        self.connect((self.blocks_udp_source_0, 0), (self.blocks_interleaved_short_to_complex_0, 0))
+        self.connect((self.blocks_interleaved_short_to_complex_0, 0), (self.blocks_multiply_const_vxx_0, 0))
+        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.blocks_complex_to_float_0, 0))
+        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.wxgui_scopesink2_0, 0))
+        self.connect((self.blocks_complex_to_float_0, 1), (self.audio_sink_0, 1))
+        self.connect((self.blocks_complex_to_float_0, 0), (self.audio_sink_0, 0))
+
+    def get_samp_rate(self):
+        return self.samp_rate
+
+    def set_samp_rate(self, samp_rate):
+        self.samp_rate = samp_rate
+        self.wxgui_scopesink2_0.set_sample_rate(self.samp_rate)
+
+
 def main(top_block_cls=udp_rx, options=None):
-    run_subprocess('ffmpeg.exe -re -i http://media-sov.musicradio.com/LBCUK? -f wav udp://127.0.0.1:1234')
+    #run_subprocess('ffmpeg.exe -re -i http://media-sov.musicradio.com/LBCUK? -f wav udp://127.0.0.1:1234')
     tb = top_block_cls()
     tb.Start(True)
-
-    print(help(tb.blocks_udp_source_0))
 
     tb.Wait()
 
